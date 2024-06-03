@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heat Map</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100vw;
+            height: 95vh;
+        }
+
+        #content {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            padding: 30px;
+            background-color: aqua;
+            border-radius: 50px 0 50px 0;
+        }
+        /* Style for the heatmap cells */
+        .cell {
+            stroke: none;
+        }
+
+        /* Tooltip style */
+        #tooltip {
+            position: absolute;
+            background: #f4f4f4;
+            padding: 10px;
+            border: #333 1px solid;
+            border-radius: 5px;
+            display: none;
+        }
+
+        /* Style for the legend */
+        #legend {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+        }
+
+        .legend-item span {
+            margin-left: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="content">
+        <h1 id="title">Global Temperature</h1>
+        <p id="description">Description goes here</p>
+        <svg id="heatmap"></svg>
+        <div id="tooltip"></div>
+        <div id="legend"></div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.js"></script>
+    <script>
+        // Fetching and parsing data
+        fetch('https://raw.githubusercontent.com/freeCodeCamp/ProjectReferenceData/master/global-temperature.json')
+            .then(response => response.json())
+            .then(data => {
+                // Data processing and visualization code goes here
+                const dataset = data.monthlyVariance;
+
+                // Set up SVG element
+                const w = 1200;
+                const h = 400;
+                const padding = 60;
+
+                const svg = d3.select("#heatmap")
+                    .attr("width", w)
+                    .attr("height", h);
+
+                // Create scales
+                const xScale = d3.scaleBand()
+                    .domain(dataset.map(d => d.year))
+                    .range([padding, w - padding]);
+
+                const yScale = d3.scaleBand()
+                    .domain(dataset.map(d => d.month))
+                    .range([padding, h - padding]);
+
+                // Create color scale (you can customize this as needed)
+                const colorScale = d3.scaleSequential(d3.interpolateRdYlBu)
+                    .domain(d3.extent(dataset, d => d.variance));
+
+                // Create axes
+                const xAxis = d3.axisBottom(xScale)
+                    .tickValues(xScale.domain().filter(year => year % 10 === 0));
+
+                const yAxis = d3.axisLeft(yScale)
+                    .tickFormat(month => {
+                        const date = new Date(0);
+                        date.setUTCMonth(month - 1);
+                        return d3.timeFormat("%B")(date);
+                    });
+
+                svg.append("g")
+                    .attr("id", "x-axis")
+                    .attr("transform", "translate(0," + (h - padding) + ")")
+                    .call(xAxis);
+
+                svg.append("g")
+                    .attr("id", "y-axis")
+                    .attr("transform", "translate(" + padding + ",0)")
+                    .call(yAxis);
+
+                // Create heatmap cells
+                svg.selectAll(".cell")
+                    .data(dataset)
+                    .enter()
+                    .append("rect")
+                    .attr("class", "cell")
+                    .attr("x", d => xScale(d.year))
+                    .attr("y", d => yScale(d.month))
+                    .attr("width", xScale.bandwidth())
+                    .attr("height", yScale.bandwidth())
+                    .attr("fill", d => colorScale(d.variance))
+                    .attr("data-year", d => d.year)
+                    .attr("data-month", d => d.month)
+                    .attr("data-temp", d => d.variance)
+                    .on("mouseover", (event, d) => {
+                        const tooltip = document.getElementById("tooltip");
+                        tooltip.style.display = "block";
+                        tooltip.style.left = event.pageX + "px";
+                        tooltip.style.top = event.pageY + "px";
+                        tooltip.setAttribute("data-year", d.year);
+                        tooltip.innerHTML = `Year: ${d.year}<br>Month: ${d3.timeFormat("%B")(new Date(0, d.month - 1))}<br>Variance: ${d.variance}°C`;
+                    })
+                    .on("mouseout", () => {
+                        const tooltip = document.getElementById("tooltip");
+                        tooltip.style.display = "none";
+                    });
+
+                // Create legend
+                const legendColors = ['#67001f', '#b2182b', '#d6604d', '#f4a582', '#fddbc7', '#f7f7f7', '#d1e5f0', '#92c5de', '#4393c3', '#2166ac', '#053061'];
+                const legendDomain = colorScale.domain();
+                const legendWidth = 30;
+
+                const legend = d3.select("#legend")
+                    .selectAll(".legend-item")
+                    .data(legendColors)
+                    .enter()
+                    .append("div")
+                    .attr("class", "legend-item");
+
+                legend.append("div")
+                    .style("background-color", d => d)
+                    .style("width", legendWidth + "px")
+                    .style("height", "20px");
+
+                legend.append("span")
+                    .text((d, i) => {
+                        const range = colorScale.invertExtent(d);
+                        const format = d3.format(".1f");
+                        return `${format(range[0])} - ${format(range[1])}`;
+                    });
+            });
+    </script>
+</body>
+
+</html>
